@@ -13,12 +13,23 @@ const adminAdRoutes = require("./routes/adminAdRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
+const cronRoutes = require("./routes/cronRoutes");
 
 const { startScheduler } = require("./utils/adScheduler");
 
-connectDB().then(() => {
-    startScheduler();
+// Vercel sets this automatically at runtime.
+const isVercel = !!process.env.VERCEL;
+
+connectDB().catch((error) => {
+    console.error("Initial MongoDB connection failed:", error.message);
 });
+
+if (!isVercel) {
+    // node-cron needs a long-running process to fire on schedule, which
+    // Vercel's serverless functions don't provide. On Vercel, the same jobs
+    // run instead via a Vercel Cron Job hitting /api/cron/expire-ads.
+    startScheduler();
+}
 
 const app = express();
 
@@ -31,6 +42,20 @@ app.get("/", (req, res) => {
     res.send("Backend running 1");
 });
 
+// Ensures the (cached) DB connection is ready before any route runs a
+// query — matters most on a cold serverless start.
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        res.status(503).json({
+            success: false,
+            message: "Database unavailable",
+        });
+    }
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/ads", adRoutes);
 app.use("/api/agents", agentRoutes);
@@ -40,10 +65,14 @@ app.use("/admin/ads", adminAdRoutes);
 app.use("/admin/dashboard", adminDashboardRoutes);
 app.use("/api/contact", contactRoutes);
 app.use('/api/admin', adminUserRoutes);
-
+app.use("/api/cron", cronRoutes);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+if (!isVercel) {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+module.exports = app;

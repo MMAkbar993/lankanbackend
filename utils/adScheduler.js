@@ -52,16 +52,22 @@ const expireOldAds = async () => {
     }
 };
 
+// Runs both jobs once. Used directly by the Vercel Cron Job route
+// (backend/routes/cronRoutes.js), since node-cron's self-scheduling below
+// doesn't survive Vercel's serverless functions between invocations.
+const runScheduledJobs = async () => {
+    await downgradeExpiredPremiumAds();
+    await expireOldAds();
+};
+
 const startScheduler = () => {
-    downgradeExpiredPremiumAds();
-    expireOldAds();
+    runScheduledJobs();
 
     cron.schedule("0 * * * *", () => {
-        downgradeExpiredPremiumAds();
-        expireOldAds();
+        runScheduledJobs();
     });
 
     console.log("[Scheduler] Ad scheduler started");
 };
 
-module.exports = { startScheduler };
+module.exports = { startScheduler, runScheduledJobs };
