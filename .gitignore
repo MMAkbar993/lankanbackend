@@ -2,8 +2,6 @@
 node_modules/
 
 # Environment Variables
-.env
-.env.local
 .env.development.local
 .env.test.local
 .env.production.local
@@ -39,7 +37,6 @@ out/
 Thumbs.db
 
 # IDE files
-.vscode/
 .idea/
 
 # Temporary files
@@ -63,3 +60,7 @@ uploads/
 
 # Package lock (optional)
 # package-lock.json
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+config.bat
